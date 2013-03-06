@@ -5,7 +5,7 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=1024, user-scalable=no">
 
-	<title>Your deck.js Presentation</title>
+	<title>Method objects</title>
 
 	<!-- Required stylesheet -->
 	<link rel="stylesheet" href="core/deck.core.css">
@@ -35,25 +35,27 @@
 </section>
 
 <section class="slide">
-  <h2>Let's take a typical Rails action...</h2>
+	<h1>Disclaimer</h1>
+</section>
+
+<section class="slide">
+  <h2>Let's take your typical Rails action...</h2>
 
   <div>
     <textarea id="code" name="code" class="code" mode="ruby" style="display: none;">
     class PostsController
       def show
-        if user.admin?
+        if current_user.admin?
           viewing_user = User.find(params[:as_user_id])
         else
           viewing_user = current_user
         end
 
-        post = Post.where(:user_id => viewing_user.id).
+        post = viewing_user.posts.
           where(:id => params[:id]).
           first
 
-        comments = viewing_user.visible_comments.
-          where(:post_id => post.id).
-          all
+        comments = post.comments.visible_to(user).all
 
         respond_with [post] + comments
       end
@@ -63,11 +65,141 @@
 </section>
 
 <section class="slide">
-	<h1>Content</h1>
+  <h2>You might refactor if it gets too bulky</h2>
+
+  <div>
+    <textarea id="code" name="code" class="code" mode="ruby" style="display: none;">
+    class PostsController
+      def show
+        [...]
+
+        user = viewing_user
+        post = post(user)
+        comments = comments(user, post)
+
+        respond_with [post] + comments
+      end
+
+      private
+      def viewing_user
+        if current_user.admin?
+          User.find(params[:as_user_id])
+        else
+          current_user
+        end
+      end
+
+      def post(user)
+        user.posts.where(:id => params[:id]).first
+      end
+
+      def comments(user, post)
+        post.comments.visible_to(user).all
+      end
+    end
+    </textarea>
+  </div>
 </section>
 
 <section class="slide">
-	<h1>Here</h1>
+  <h2>The methods share a lot of context...</h2>
+  <div class="slide">
+    <h3>
+      This can also easily happen if you decide to make something static, and
+      it grows like a cancer
+    </h3>
+
+    <textarea id="code" name="code" class="code" mode="ruby" style="display: none;">
+      module UserHelpers
+        def self.full_name(user)
+          "#{user.first_name} #{user.last_name}"
+        end
+
+        def self.signature(user, fortune)
+          "#{full_name(user)}\n#{fortune}"
+        end
+
+        def self.email(user, fortune, content)
+          "#{content}\n\n#{self.signature(user)}"
+        end
+
+        # And so on
+      end
+    </textarea>
+  </div>
+
+  <h3 class="slide">This bunch of functions is begging you to become a class</h3>
+  <h3 class="slide">Seriously, they wanted to be a class since they were five</h3>
+</section>
+
+<section class="slide">
+  <h2>Method objects to the rescue!</h2>
+
+  <textarea id="code" name="code" class="code" mode="ruby" style="display: none;">
+    class FeedGenerator
+      def initialize(user, post_id)
+        @user = user
+        @post_id = post_id
+      end
+
+      def feed
+        [post] + comments
+      end
+
+      private
+      def post
+        user.posts.where(:id => post_id).first
+      end
+
+      def comments
+        post.comments.visible_to(user).all
+      end
+    end
+  </textarea>
+</section>
+
+<section class="slide">
+  <h2>You can top off with some immutability, laziness and a convenience static method</h2>
+
+  <textarea id="code" name="code" class="code" mode="ruby" style="display: none;">
+    require "immutable_struct"
+
+    class FeedGenerator < ImmutableStruct.new(:user, :post_id)
+      def self.feed(user, post_id)
+        new(user, post_id).feed
+      end
+
+      def feed
+        @feed ||= [post] + comments
+      end
+
+      private
+      def post
+        @post ||= viewing_user.posts
+          where(:id => post_id).
+          first
+      end
+
+      def comments
+        @comments ||= post.comments.visible_to(user).all
+      end
+    end
+  </textarea>
+</section>
+
+<section class="slide">
+  <h2>Method objects</h2>
+  <h3 class="slide">Give you an easy way to share context between methods</h3>
+  <h3 class="slide">
+    Allow you to extract coherent pieces of business logic away
+    from controllers so that they can only deal with HTTP
+    (Rails-specific, but you get the idea)
+  </h3>
+  <h3 class="slide">Have a well defined public interface and so are easily testable</h3>
+</section>
+
+<section class="slide">
+	<h1>Questions?</h1>
 </section>
 
 <!-- End slides. -->

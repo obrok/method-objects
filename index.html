@@ -110,21 +110,26 @@
     </h3>
 
     <textarea id="code" name="code" class="code" mode="ruby" style="display: none;">
-      module UserHelpers
-        def self.full_name(user)
-          "#{user.first_name} #{user.last_name}"
-        end
+module PostHelper
+  def self.filter_posts(initial_context, params)
+    if params[:title]
+      initial_context = filter_by_title(initial_context, params[:title])
+    end
+    if params[:content]
+      initial_context = filter_by_content(initial_context, params[:content])
+    end
+  end
 
-        def self.signature(user, fortune)
-          "#{full_name(user)}\n#{fortune}"
-        end
+  def self.filter_by_title(context, title)
+    context.where(:title => title)
+  end
 
-        def self.email(user, fortune, content)
-          "#{content}\n\n#{self.signature(user)}"
-        end
+  def self.filter_by_title(context, content)
+    context.where("content like ?", "%#{content}")
+  end
 
-        # And so on
-      end
+  # And so on
+end
     </textarea>
   </div>
 
@@ -159,7 +164,10 @@
 </section>
 
 <section class="slide">
-  <h2>You can top off with some immutability, laziness and a convenience static method</h2>
+  <h2>
+    You can top off with some immutability, laziness/memoization and a
+    convenience static method, et voilà
+  </h2>
 
   <textarea id="code" name="code" class="code" mode="ruby" style="display: none;">
     require "immutable_struct"
